@@ -128,6 +128,10 @@ func rLogin(r *http.Request, w http.ResponseWriter, log *log.Logger, db *sql.DB,
 		return http.StatusOK, string(rs)
 	}
 	result, err := stmtOut.Query(un, pd)
+	defer func() {
+		stmtOut.Close()
+		result.Close()
+	}()
 	if err != nil {
 		log.Printf("%s", err)
 		//		http.Redirect(w, r, ERROR_PAGE_NAME, 301)
@@ -202,7 +206,7 @@ func usageRecord(r *http.Request, w http.ResponseWriter, log *log.Logger, db *sq
 		mos = append(mos, user)
 	}
 
-	stmtOut, err = db.Prepare("SELECT spnum, spname, serviceword, servicename, " +
+	stmtOutT, err := db.Prepare("SELECT spnum, spname, serviceword, servicename, " +
 		"servicefee, terminal, consignid, consignname, " +
 		"provincename, cityname, statusid, logtime, expendtime FROM sp_mt_log " +
 		"WHERE logtime >= ? AND logtime <= ? AND terminal = ?")
@@ -212,7 +216,7 @@ func usageRecord(r *http.Request, w http.ResponseWriter, log *log.Logger, db *sq
 		r, _ := json.Marshal(s)
 		return http.StatusOK, string(r)
 	}
-	result, err = stmtOut.Query(stime, etime, terminal)
+	resultT, err := stmtOutT.Query(stime, etime, terminal)
 	if err != nil {
 		log.Printf("%s", err)
 		s = LoginStatus{500, "内部错误导致查询失败."}
@@ -220,9 +224,9 @@ func usageRecord(r *http.Request, w http.ResponseWriter, log *log.Logger, db *sq
 		return http.StatusOK, string(r)
 	}
 	var mts []SpUser
-	for result.Next() {
+	for resultT.Next() {
 		user := SpUser{}
-		result.Scan(&user.SpInfo.Spnum, &user.SpInfo.Spname,
+		resultT.Scan(&user.SpInfo.Spnum, &user.SpInfo.Spname,
 			&user.SpService.Serviceword, &user.SpService.Servicename,
 			&user.SpService.Servicefee, &user.SpServiceRule.Terminal,
 			&user.SpConsign.Consignid, &user.SpConsign.Consignname,
@@ -237,6 +241,12 @@ func usageRecord(r *http.Request, w http.ResponseWriter, log *log.Logger, db *sq
 
 	jsondata, _ := json.Marshal(transaction)
 	log.Println(string(jsondata))
+	defer func() {
+		stmtOut.Close()
+		result.Close()
+		stmtOutT.Close()
+		resultT.Close()
+	}()
 	return http.StatusOK, string(jsondata)
 }
 func finaSinkAdu(r *http.Request, w http.ResponseWriter, log *log.Logger, db *sql.DB, session sessions.Session, p martini.Params) (int, string) {
@@ -303,7 +313,7 @@ func finaSinkAdu(r *http.Request, w http.ResponseWriter, log *log.Logger, db *sq
 		ss = append(ss, s)
 	}
 	st.Service = ss
-	stmtOut, err = db.Prepare("SELECT consignid, consignname, SUM(monums), SUM(mousers), SUM(mtnums), SUM(mtusers), SUM(binary fee)/100 FROM " + tableName +
+	stmtOutT, err := db.Prepare("SELECT consignid, consignname, SUM(monums), SUM(mousers), SUM(mtnums), SUM(mtusers), SUM(binary fee)/100 FROM " + tableName +
 		" WHERE day >= ? AND day <= ? " + con + " AND spnum = ? GROUP BY consignid")
 
 	if err != nil {
@@ -313,7 +323,7 @@ func finaSinkAdu(r *http.Request, w http.ResponseWriter, log *log.Logger, db *sq
 		return http.StatusOK, string(r)
 	}
 
-	result, err = stmtOut.Query(stime, etime, spnum)
+	resultT, err := stmtOutT.Query(stime, etime, spnum)
 	if err != nil {
 		log.Printf("%s", err)
 		s = LoginStatus{500, "内部错误导致查询失败."}
@@ -321,15 +331,15 @@ func finaSinkAdu(r *http.Request, w http.ResponseWriter, log *log.Logger, db *sq
 		return http.StatusOK, string(r)
 	}
 	var cs []StatByConsignid
-	for result.Next() {
+	for resultT.Next() {
 		c := StatByConsignid{}
 		c.Data = StatData{}
-		result.Scan(&c.Consignid, &c.Consignname, &c.Data.Monums, &c.Data.Mousers, &c.Data.Mtnums, &c.Data.Mtusers, &c.Data.Fee)
+		resultT.Scan(&c.Consignid, &c.Consignname, &c.Data.Monums, &c.Data.Mousers, &c.Data.Mtnums, &c.Data.Mtusers, &c.Data.Fee)
 		cs = append(cs, c)
 	}
 	st.Consign = cs
 
-	stmtOut, err = db.Prepare("SELECT provinceid, provincename, SUM(monums), SUM(mousers), SUM(mtnums), SUM(mtusers), SUM(binary fee)/100 FROM " + tableName +
+	stmtOutTt, err := db.Prepare("SELECT provinceid, provincename, SUM(monums), SUM(mousers), SUM(mtnums), SUM(mtusers), SUM(binary fee)/100 FROM " + tableName +
 		" WHERE day >= ? AND day <= ? " + con + " AND spnum = ? GROUP BY provinceid")
 
 	if err != nil {
@@ -339,7 +349,7 @@ func finaSinkAdu(r *http.Request, w http.ResponseWriter, log *log.Logger, db *sq
 		return http.StatusOK, string(r)
 	}
 
-	result, err = stmtOut.Query(stime, etime, spnum)
+	resultTt, err := stmtOutTt.Query(stime, etime, spnum)
 	if err != nil {
 		log.Printf("%s", err)
 		s = LoginStatus{500, "内部错误导致查询失败."}
@@ -347,15 +357,23 @@ func finaSinkAdu(r *http.Request, w http.ResponseWriter, log *log.Logger, db *sq
 		return http.StatusOK, string(r)
 	}
 	var ps []StatByProvinceid
-	for result.Next() {
+	for resultTt.Next() {
 		p := StatByProvinceid{}
 		p.Data = StatData{}
-		result.Scan(&p.Provinceid, &p.Provincename, &p.Data.Monums, &p.Data.Mousers, &p.Data.Mtnums, &p.Data.Mtusers, &p.Data.Fee)
+		resultTt.Scan(&p.Provinceid, &p.Provincename, &p.Data.Monums, &p.Data.Mousers, &p.Data.Mtnums, &p.Data.Mtusers, &p.Data.Fee)
 		ps = append(ps, p)
 	}
 	st.Province = ps
 	jsondata, _ := json.Marshal(st)
 	log.Println(string(jsondata))
+	defer func() {
+		stmtOut.Close()
+		result.Close()
+		stmtOutT.Close()
+		resultT.Close()
+		stmtOutTt.Close()
+		resultTt.Close()
+	}()
 	return http.StatusOK, string(jsondata)
 }
 
@@ -397,6 +415,7 @@ func finalSinkAdmin(r *http.Request, w http.ResponseWriter, log *log.Logger, db 
 	}
 	stmtOut, err := db.Prepare("SELECT spnum, spname, SUM(monums), SUM(mousers), SUM(mtnums), SUM(mtusers), SUM(binary fee)/100 FROM " + tableName +
 		" WHERE day >= ? AND day <= ? " + con + " GROUP BY spnum")
+	defer stmtOut.Close()
 	if err != nil {
 		log.Printf("%s", err)
 		s = LoginStatus{500, "内部错误导致查询失败."}
@@ -405,6 +424,7 @@ func finalSinkAdmin(r *http.Request, w http.ResponseWriter, log *log.Logger, db 
 	}
 
 	result, err := stmtOut.Query(stime, etime)
+	defer result.Close()
 	if err != nil {
 		log.Printf("%s", err)
 		s = LoginStatus{500, "内部错误导致查询失败."}
@@ -457,6 +477,7 @@ func finalUser(r *http.Request, w http.ResponseWriter, log *log.Logger, db *sql.
 	}
 	stmtOut, err := db.Prepare("SELECT serviceid, servicename, SUM(monums), SUM(mousers), SUM(mtnums), SUM(mtusers), SUM(binary fee)/100 FROM sp_final_stat " +
 		"WHERE day >= ? AND day <= ? " + con + " GROUP BY serviceid")
+	defer stmtOut.Close()
 	if err != nil {
 		log.Printf("%s", err)
 		s = LoginStatus{500, "内部错误导致查询失败."}
@@ -465,6 +486,7 @@ func finalUser(r *http.Request, w http.ResponseWriter, log *log.Logger, db *sql.
 	}
 
 	result, err := stmtOut.Query(stime, etime)
+	defer result.Close()
 	if err != nil {
 		log.Printf("%s", err)
 		s = LoginStatus{500, "内部错误导致查询失败."}
@@ -480,9 +502,9 @@ func finalUser(r *http.Request, w http.ResponseWriter, log *log.Logger, db *sql.
 		ss = append(ss, s)
 	}
 	st.Service = ss
-	stmtOut, err = db.Prepare("SELECT consignid, consignname, SUM(monums), SUM(mousers), SUM(mtnums), SUM(mtusers), SUM(binary fee)/100 FROM sp_final_stat " +
+	stmtOutT, err := db.Prepare("SELECT consignid, consignname, SUM(monums), SUM(mousers), SUM(mtnums), SUM(mtusers), SUM(binary fee)/100 FROM sp_final_stat " +
 		"WHERE day >= ? AND day <= ? " + con + " GROUP BY consignid")
-
+	defer stmtOutT.Close()
 	if err != nil {
 		log.Printf("%s", err)
 		s = LoginStatus{500, "内部错误导致查询失败."}
@@ -490,7 +512,8 @@ func finalUser(r *http.Request, w http.ResponseWriter, log *log.Logger, db *sql.
 		return http.StatusOK, string(r)
 	}
 
-	result, err = stmtOut.Query(stime, etime)
+	resultT, err := stmtOut.Query(stime, etime)
+	defer resultT.Close()
 	if err != nil {
 		log.Printf("%s", err)
 		s = LoginStatus{500, "内部错误导致查询失败."}
@@ -498,17 +521,17 @@ func finalUser(r *http.Request, w http.ResponseWriter, log *log.Logger, db *sql.
 		return http.StatusOK, string(r)
 	}
 	var cs []StatByConsignid
-	for result.Next() {
+	for resultT.Next() {
 		c := StatByConsignid{}
 		c.Data = StatData{}
-		result.Scan(&c.Consignid, &c.Consignname, &c.Data.Monums, &c.Data.Mousers, &c.Data.Mtnums, &c.Data.Mtusers, &c.Data.Fee)
+		resultT.Scan(&c.Consignid, &c.Consignname, &c.Data.Monums, &c.Data.Mousers, &c.Data.Mtnums, &c.Data.Mtusers, &c.Data.Fee)
 		cs = append(cs, c)
 	}
 	st.Consign = cs
 
-	stmtOut, err = db.Prepare("SELECT provinceid, provincename, SUM(monums), SUM(mousers), SUM(mtnums), SUM(mtusers), SUM(binary fee)/100 FROM sp_final_stat " +
+	stmtOutTt, err := db.Prepare("SELECT provinceid, provincename, SUM(monums), SUM(mousers), SUM(mtnums), SUM(mtusers), SUM(binary fee)/100 FROM sp_final_stat " +
 		"WHERE day >= ? AND day <= ? " + con + " GROUP BY provinceid")
-
+	defer stmtOutTt.Close()
 	if err != nil {
 		log.Printf("%s", err)
 		s = LoginStatus{500, "内部错误导致查询失败."}
@@ -516,7 +539,8 @@ func finalUser(r *http.Request, w http.ResponseWriter, log *log.Logger, db *sql.
 		return http.StatusOK, string(r)
 	}
 
-	result, err = stmtOut.Query(stime, etime)
+	resultTt, err := stmtOut.Query(stime, etime)
+	defer resultTt.Close()
 	if err != nil {
 		log.Printf("%s", err)
 		s = LoginStatus{500, "内部错误导致查询失败."}
@@ -524,10 +548,10 @@ func finalUser(r *http.Request, w http.ResponseWriter, log *log.Logger, db *sql.
 		return http.StatusOK, string(r)
 	}
 	var ps []StatByProvinceid
-	for result.Next() {
+	for resultTt.Next() {
 		p := StatByProvinceid{}
 		p.Data = StatData{}
-		result.Scan(&p.Provinceid, &p.Provincename, &p.Data.Monums, &p.Data.Mousers, &p.Data.Mtnums, &p.Data.Mtusers, &p.Data.Fee)
+		resultTt.Scan(&p.Provinceid, &p.Provincename, &p.Data.Monums, &p.Data.Mousers, &p.Data.Mtnums, &p.Data.Mtusers, &p.Data.Fee)
 		ps = append(ps, p)
 	}
 	st.Province = ps
