@@ -32,7 +32,6 @@ type Msg struct {
 }
 
 type Processor interface {
-	//串行处理
 	SProcess(msg *Msg)
 }
 
@@ -154,6 +153,39 @@ func (self *Queue) Worker(pnum uint, serial bool, ps ...Processor) {
 							break
 						}
 					}
+				} else {
+					//并行处理
+				}
+				<-control
+			}()
+		}
+	}()
+}
+
+func (self *Queue) Control(pnum uint, serial bool, ps ...Processor) {
+	control := make(chan Msg, pnum)
+	lenChan := make(chan Msg)
+	go func() {
+		for {
+			if n, _ := self.LLen(); n > 0 {
+				lenChan <- Msg{n, nil}
+			}
+		}
+	}()
+	go func() {
+		for {
+			msg := <-lenChan
+			control <- msg
+			go func() {
+				if serial {
+					for _, sp := range ps {
+						sp.SProcess(&msg)
+						if msg.Err != nil {
+							break
+						}
+					}
+				} else {
+					//并行处理
 				}
 				<-control
 			}()
