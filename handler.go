@@ -76,6 +76,9 @@ type MtQueue struct {
 	p *sexredis.RedisPool
 }
 
+type OnlyMtReport struct {
+}
+
 func (self *StoreMsg) SProcess(msg *sexredis.Msg) {
 	log.Printf("Store msg process start ... %s", msg)
 
@@ -315,6 +318,16 @@ func (self *MatchMo) SProcess(msg *sexredis.Msg) {
 	log.Printf("Match mo process end ... %+v", msg)
 }
 
+func (self *OnlyMtReport) SProcess(msg *sexredis.Msg) {
+	log.Printf("Only mt report process start ... %+v", msg)
+	//msg type ok?
+	user := msg.Content.(SpUser)
+	if user.SpServiceRule.Statusid == user.SpServiceRule.Serviceword {
+		user.SpServiceRule.Statusid = STATUS_ID_SUCCESS
+	}
+	msg.Content = user
+	log.Printf("Only mt report process end ... %+v", msg)
+}
 func (self *SinkReport) SProcess(msg *sexredis.Msg) {
 	log.Printf("Sink report process start ... %+v", msg)
 	var (

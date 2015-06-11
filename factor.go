@@ -945,7 +945,7 @@ func main() {
 		queue := sexredis.New()
 		queue.SetRClient(ONLY_MT_RECEIVE_QUEUE_NAME, rc)
 		queue.Worker(2, true, &StoreMsg{db}, &IpToRule{cache}, &MatchArea{cache},
-			&MatchWord{cache}, &SinkReport{cache}, &UpdateMtUsers{cache}, &StoreMt{db}, &FinalMtStat{db, cache},
+			&MatchWord{cache}, &OnlyMtReport{}, &SinkReport{cache}, &UpdateMtUsers{cache}, &StoreMt{db}, &FinalMtStat{db, cache},
 			&SinkMtStat{db, cache}, &MtQueue{redisPool})
 	}
 	// mtn.Run()
