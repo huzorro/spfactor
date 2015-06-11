@@ -512,7 +512,7 @@ func finalUser(r *http.Request, w http.ResponseWriter, log *log.Logger, db *sql.
 		return http.StatusOK, string(r)
 	}
 
-	resultT, err := stmtOut.Query(stime, etime)
+	resultT, err := stmtOutT.Query(stime, etime)
 	defer resultT.Close()
 	if err != nil {
 		log.Printf("%s", err)
@@ -539,7 +539,7 @@ func finalUser(r *http.Request, w http.ResponseWriter, log *log.Logger, db *sql.
 		return http.StatusOK, string(r)
 	}
 
-	resultTt, err := stmtOut.Query(stime, etime)
+	resultTt, err := stmtOutTt.Query(stime, etime)
 	defer resultTt.Close()
 	if err != nil {
 		log.Printf("%s", err)
