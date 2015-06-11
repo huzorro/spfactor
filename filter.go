@@ -95,7 +95,8 @@ const (
 	ROLE_GUESS_PRI = NODE_LOGIN_PRI | NODE_RLOGIN_PRI
 )
 const (
-	GROUP_PRI_ALL = 1 << iota
+	_ = iota
+	GROUP_PRI_ALL
 	GROUP_PRI_ALLOW
 	GROUP_PRI_BAN
 )
