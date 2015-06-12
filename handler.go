@@ -323,7 +323,7 @@ func (self *OnlyMtReport) SProcess(msg *sexredis.Msg) {
 	//msg type ok?
 	user := msg.Content.(SpUser)
 	if user.SpServiceRule.Statusid == user.SpService.Referrule.Statusid {
-		userMo.SpServiceRule.Statusid = STATUS_ID_SUCCESS
+		user.SpServiceRule.Statusid = STATUS_ID_SUCCESS
 	}
 	msg.Content = user
 	log.Printf("Only mt report process end ... %+v", msg)
