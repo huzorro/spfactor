@@ -121,12 +121,13 @@ func (self *RBAC) Filter() martini.Handler {
 		}
 		if v, ok := nMap[path]; ok {
 			if (user.Role.Privilege & v.Id) != v.Id {
-				http.Redirect(w, r, LOGIN_PAGE_NAME, 301)
+				http.Redirect(w, r, r.URL.Scheme+"://"+r.URL.Host+"/"+LOGIN_PAGE_NAME, 301)
 				return
 			}
 			return
 		}
 		log.Printf("access unauth page")
-		http.Redirect(w, r, LOGIN_PAGE_NAME, 301)
+		http.Redirect(w, r, r.URL.Scheme+"://"+r.URL.Host+"/"+LOGIN_PAGE_NAME, 301)
+
 	}
 }
