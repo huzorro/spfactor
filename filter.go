@@ -85,8 +85,8 @@ type RBAC struct{}
 
 const (
 	SESSION_KEY_QUSER = "Quser"
-	ERROR_PAGE_NAME   = "500.html"
-	LOGIN_PAGE_NAME   = "login"
+	ERROR_PAGE_NAME   = "/500.html"
+	LOGIN_PAGE_NAME   = "/login"
 	NODE_LOGIN_PRI    = 1 << 0
 	NODE_RLOGIN_PRI   = 1 << 6
 
@@ -121,13 +121,13 @@ func (self *RBAC) Filter() martini.Handler {
 		}
 		if v, ok := nMap[path]; ok {
 			if (user.Role.Privilege & v.Id) != v.Id {
-				http.Redirect(w, r, r.URL.Scheme+"://"+r.URL.Host+"/"+LOGIN_PAGE_NAME, 301)
+				http.Redirect(w, r, LOGIN_PAGE_NAME, 301)
 				return
 			}
 			return
 		}
 		log.Printf("access unauth page")
-		http.Redirect(w, r, r.URL.Scheme+"://"+r.URL.Host+"/"+LOGIN_PAGE_NAME, 301)
+		http.Redirect(w, r, LOGIN_PAGE_NAME, 301)
 
 	}
 }
