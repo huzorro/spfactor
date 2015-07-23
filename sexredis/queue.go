@@ -2,6 +2,7 @@ package sexredis
 
 import (
 	"errors"
+	"fmt"
 	"github.com/gosexy/redis"
 )
 
@@ -37,6 +38,7 @@ type Processor interface {
 
 func New() *Queue {
 	q := new(Queue)
+	q.Msgchan = make(chan Msg)
 	return q
 }
 
@@ -77,6 +79,7 @@ func (self *Queue) Get(block bool, timeout uint64) (msg Msg) {
 			return Msg{"", err}
 		} else {
 			if len(rs) > 1 {
+				fmt.Println(len(rs))
 				return Msg{rs[1], nil}
 			} else {
 				return Msg{"", errors.New("queue is empty")}
@@ -96,15 +99,18 @@ func (self *Queue) Put(msg interface{}) (recode int64, err error) {
 use channel implement like python yield
 */
 func (self *Queue) Consume() {
-	self.Msgchan = make(chan Msg)
+	//	self.Msgchan = make(chan Msg)
 	for {
 		//		if msg, err := self.Get(true, uint64(0)); err != nil {
 		//			return err
 		//		} else {
 		//			self.msgchan <- msg
 		//		}
-
+		//		msg := self.Get(true, uint64(0))
+		//		fmt.Printf("%+v", msg)
+		//		self.Msgchan <- msg
 		self.Msgchan <- self.Get(true, uint64(0))
+		//		fmt.Println("chan <-")
 	}
 }
 
@@ -136,11 +142,11 @@ func (self *Queue) Yield() (msg Msg) {
 //}
 
 func (self *Queue) Worker(pnum uint, serial bool, ps ...Processor) {
+	fmt.Printf("queue workder ....")
 	control := make(chan Msg, pnum)
 	go func() {
 		self.Consume()
 	}()
-
 	go func() {
 		for {
 			msg := self.Yield()
@@ -150,6 +156,7 @@ func (self *Queue) Worker(pnum uint, serial bool, ps ...Processor) {
 					for _, sp := range ps {
 						sp.SProcess(&msg)
 						if msg.Err != nil {
+							fmt.Printf(msg.Err.Error())
 							break
 						}
 					}
